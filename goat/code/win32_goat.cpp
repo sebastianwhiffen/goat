@@ -1,70 +1,91 @@
 #define UNICODE
 #include <windows.h>
 
-LRESULT CALLBACK MainWindowCallback(HWND window, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    LRESULT result = 0;
-    switch (msg)
-    {
-    case WM_SIZE:
-    {
-        OutputDebugStringA("WM_SIZE\n");
-    }
-    break;
-    case WM_DESTROY:
-    {
-        OutputDebugStringA("WM_DESTROY\n");
-    }
-    break;
-    case WM_CLOSE:
-    {
-        OutputDebugStringA("WM_CLOSE\n");
-    }
-    break;
-    case WM_ACTIVATEAPP:
-    {
-        OutputDebugStringA("WM_ACTIVATEAPP\n");
-    }
-    break;
-    case WM_PAINT:
-    {
-        PAINTSTRUCT ps;
-        HDC deviceContext = BeginPaint(window, &ps);
-        int x = ps.rcPaint.left;
-        int y = ps.rcPaint.top;
-        int height = ps.rcPaint.bottom - ps.rcPaint.top;
-        int width = ps.rcPaint.right - ps.rcPaint.left;
-        static DWORD operation = WHITENESS;
+#define internal static
+#define local_persist static
+#define global_variable static
 
-        PatBlt(deviceContext, x, y, height, width, operation);
-        
-        if (operation == WHITENESS)
-        {
-            operation = BLACKNESS;
-        }
-        else
-        {
-            operation = WHITENESS;
-        }
-        EndPaint(window, &ps);
+global_variable bool _isRunning = false;
+global_variable BITMAPINFO _bitmapInfo;
+global_variable void *_bitmapMemory;
+global_variable HBITMAP _bitmapHandle;
+global_variable HDC _bitmapDeviceContext;
+
+internal void Win32ResizeDIBSection(int width, int height) {
+
+    if (_bitmapHandle) {
+        DeleteObject(_bitmapHandle);
     }
-    break;
-    default:
-    {
-        result = DefWindowProc(window, msg, wParam, lParam);
+    if (!_bitmapDeviceContext) {
+        _bitmapDeviceContext = CreateCompatibleDC(0);
     }
-    break;
+
+    _bitmapInfo.bmiHeader.biSize = sizeof(_bitmapInfo.bmiHeader);
+    _bitmapInfo.bmiHeader.biWidth = width;
+    _bitmapInfo.bmiHeader.biHeight = height;
+    _bitmapInfo.bmiHeader.biPlanes = 1;
+    _bitmapInfo.bmiHeader.biBitCount = 32;
+    _bitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    HDC deviceContext = CreateCompatibleDC(0);
+
+    _bitmapHandle = CreateDIBSection(deviceContext, &_bitmapInfo, DIB_RGB_COLORS, &_bitmapMemory, 0, 0);
+}
+
+internal void Win32UpdateWindow(HDC deviceContext, int x, int y, int width, int height) {
+
+    StretchDIBits(deviceContext, x, y, width, height, x, y, width, height, _bitmapMemory, &_bitmapInfo, DIB_RGB_COLORS,
+                  SRCCOPY);
+}
+
+LRESULT CALLBACK Win32MainWindowCallback(HWND window, UINT msg, WPARAM wParam, LPARAM lParam) {
+    LRESULT result = 0;
+    switch (msg) {
+        case WM_SIZE: {
+            RECT clientRect;
+            GetClientRect(window, &clientRect);
+            int width = clientRect.right - clientRect.left;
+            int height = clientRect.bottom - clientRect.top;
+
+            Win32ResizeDIBSection(width, height);
+        } break;
+        case WM_DESTROY: {
+            _isRunning = false;
+            OutputDebugStringA("WM_DESTROY\n");
+        } break;
+        case WM_CLOSE: {
+            _isRunning = false;
+            PostQuitMessage(0);
+            OutputDebugStringA("WM_CLOSE\n");
+        } break;
+        case WM_ACTIVATEAPP: {
+            OutputDebugStringA("WM_ACTIVATEAPP\n");
+        } break;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC deviceContext = BeginPaint(window, &ps);
+            int x = ps.rcPaint.left;
+            int y = ps.rcPaint.top;
+            int height = ps.rcPaint.bottom - ps.rcPaint.top;
+            int width = ps.rcPaint.right - ps.rcPaint.left;
+
+            Win32UpdateWindow(deviceContext, x, y, width, height);
+
+            EndPaint(window, &ps);
+        } break;
+        default: {
+            result = DefWindowProc(window, msg, wParam, lParam);
+        } break;
     }
     return result;
 }
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prevInstance, PWSTR cmdLine, int cmdShow)
-{
+int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prevInstance, PWSTR cmdLine, int cmdShow) {
     WNDCLASS windowClass = {};
     // style is a set of binary flags for window props
     windowClass.style = CS_OWNDC | CS_HREDRAW;
     // ptr to function that defines how window responds to events
-    windowClass.lpfnWndProc = MainWindowCallback;
+    windowClass.lpfnWndProc = Win32MainWindowCallback;
     // handles instance that contains the window procedure for the class???
     windowClass.hInstance = instance;
     // window icon
@@ -73,8 +94,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prevInstance, PWSTR cmdLine, i
     // WindowClass.lpszMenuName = ;
     windowClass.lpszClassName = L"GoatWindowClass";
 
-    if (RegisterClass(&windowClass))
-    {
+    if (RegisterClass(&windowClass)) {
         HWND windowHandle = CreateWindowExW(
             // window style bitflags
             0,
@@ -101,31 +121,23 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prevInstance, PWSTR cmdLine, i
             instance,
             // window param, to be used with MainWindowCallback on create
             0);
-        if (windowHandle)
-        {
+        if (windowHandle) {
             MSG msg;
-            for (;;)
-            {
+            _isRunning = true;
+            while (_isRunning) {
 
                 BOOL res = GetMessage(&msg, 0, 0, 0);
-                if (res > 0)
-                {
+                if (res > 0) {
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
-                }
-                else
-                {
+                } else {
                     break;
                 }
             }
-        }
-        else
-        {
+        } else {
             OutputDebugStringA("it failed :(");
         }
-    }
-    else
-    {
+    } else {
         OutputDebugStringA("it failed :(");
     }
 

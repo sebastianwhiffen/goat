@@ -1,15 +1,19 @@
 {
-    "terminal.integrated.profiles.windows": {
-      "Dev Cmd": {
-        "path": "cmd.exe",
-        "args": [
-          "/k",
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
-          "&&",
-          "powershell.exe"
-        ]
-      }
-    },
-    "terminal.integrated.defaultProfile.windows": "Dev Cmd"
+  "terminal.integrated.profiles.windows": {
+    "Dev Cmd": {
+      "path": "cmd.exe",
+      "args": [
+        "/k",
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat",
+        "&&",
+        "powershell.exe"
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "Dev Cmd",
+  "clang-format.executable": "C:/Program Files/LLVM/bin/clang-format.exe",
+  "[cpp]": {
+    "editor.defaultFormatter": "xaver.clang-format",
+    "editor.formatOnSave": true
   }
-  
+}
